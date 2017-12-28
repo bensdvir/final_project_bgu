@@ -47,6 +47,7 @@ public class HomeActivity extends AppCompatActivity
     protected static final int REQUEST_CHECK_SETTINGS = 0x1;
 
     private GoogleMap mMap;
+    private int n;
     private FusedLocationProviderClient mFusedLocationClient;
     private Location myLoc;
     LocationManager locationManager;
