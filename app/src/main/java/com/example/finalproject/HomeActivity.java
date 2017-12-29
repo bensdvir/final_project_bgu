@@ -98,7 +98,7 @@ public class HomeActivity extends AppCompatActivity
                 builder.setTitle("Insert Adress");
 
                 final EditText input = new EditText(HomeActivity.this);
-                input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+                input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_CLASS_TEXT);
                 builder.setView(input);
 
             // Set up the buttons
