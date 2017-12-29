@@ -1,25 +1,20 @@
 package com.example.finalproject;
 
-import android.Manifest;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.annotation.TargetApi;
 import android.app.AlertDialog;
-import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
-import android.content.pm.PackageInstaller;
 import android.content.pm.PackageManager;
 import android.content.pm.Signature;
-import android.location.LocationListener;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.location.LocationManager;
 import android.provider.Settings;
-import android.support.annotation.NonNull;
 import android.support.design.widget.Snackbar;
-import android.support.v4.app.ActivityCompat;
-import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.app.LoaderManager.LoaderCallbacks;
 
@@ -57,13 +52,14 @@ import com.facebook.login.widget.LoginButton;
 
 import org.json.JSONObject;
 
-import java.io.IOException;
+import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 
 import static android.Manifest.permission.READ_CONTACTS;
@@ -106,8 +102,7 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
         // Set up the login form.
-        mEmailView = (AutoCompleteTextView) findViewById(R.id.email);
-        populateAutoComplete();
+        //populateAutoComplete();
 
         callbackManager = CallbackManager.Factory.create();
         LoginButton loginButton = (LoginButton) findViewById(R.id.login_button);
@@ -153,7 +148,6 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
                 }
         );
 
-            loggedIn = AccessToken.getCurrentAccessToken() == null;
 
         try {
             PackageInfo info = getPackageManager().getPackageInfo(
@@ -170,23 +164,13 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
 
         }
 
-        mPasswordView = (EditText) findViewById(R.id.password);
-        mPasswordView.setOnEditorActionListener(new TextView.OnEditorActionListener() {
-            @Override
-            public boolean onEditorAction(TextView textView, int id, KeyEvent keyEvent) {
-                if (id == EditorInfo.IME_ACTION_DONE || id == EditorInfo.IME_NULL) {
-                    attemptLogin();
-                    return true;
-                }
-                return false;
-            }
-        });
 
         Button mEmailSignInButton = (Button) findViewById(R.id.email_sign_in_button);
         mEmailSignInButton.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View view) {
-                attemptLogin();
+                Intent intent = new Intent(getBaseContext(), RegisterActivity.class);
+                startActivity(intent);
             }
         });
 
@@ -194,24 +178,24 @@ public class LoginActivity extends AppCompatActivity implements LoaderCallbacks<
         mProgressView = findViewById(R.id.login_progress);
 
         Button serverButton = (Button) findViewById(R.id.buttonLocation);
-        serverButton.setOnClickListener(new OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                try {
-                    Communication.sendGET();
-                    Dialog d = new Dialog(LoginActivity.this);
-                    d.show();
-                } catch (IOException e) {
-                    Dialog d = new Dialog(LoginActivity.this);
-                    d.show();
-                    e.printStackTrace();
-                }
-            }
-        });
+        serverButton.setOnClickListener(
+                new OnClickListener() {
+                    @Override
+                    public void onClick(View view) {
+                        new AsyncTask<Void, Void, Void>() {
+                            @Override
+                            protected Void doInBackground(Void... params) {
+                                Communication.makeGetRequestGetCode("http://192.168.43.76:8080/greeting", null);
+                                return null;
+                            }
+                        }.execute();}});
 
 
-
-
+        loggedIn = AccessToken.getCurrentAccessToken() != null;
+        if(loggedIn) {
+            LoginManager.getInstance().logOut();
+            loginButton.callOnClick();
+        }
 
     }
 

@@ -2,7 +2,9 @@ package com.example.finalproject;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.app.ActivityOptions;
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -12,11 +14,13 @@ import android.location.Geocoder;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.DialogFragment;
 import android.support.v4.content.ContextCompat;
+import android.text.InputType;
 import android.view.View;
 import android.support.design.widget.NavigationView;
 import android.support.v4.view.GravityCompat;
@@ -27,7 +31,9 @@ import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.Button;
+import android.widget.EditText;
 
+import com.facebook.login.LoginManager;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -39,6 +45,7 @@ import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 
 public class HomeActivity extends AppCompatActivity
@@ -48,6 +55,8 @@ public class HomeActivity extends AppCompatActivity
 
     private GoogleMap mMap;
     private int n;
+    private String m_Text = "";
+    private List<Apartment> ans = null;
     private FusedLocationProviderClient mFusedLocationClient;
     private Location myLoc;
     LocationManager locationManager;
@@ -64,8 +73,8 @@ public class HomeActivity extends AppCompatActivity
 
         // get menu from navigationView
         Menu menu = navigationView2.getMenu();
-
         // find MenuItem you want to change
+
         MenuItem nav_camara = menu.findItem(R.id.nav_camera);
         nav_camara.setTitle("Chat");
         nav_camara.setIcon(ContextCompat.getDrawable(this, R.drawable.common_full_open_on_phone));
@@ -75,8 +84,84 @@ public class HomeActivity extends AppCompatActivity
         nav_gallery.setTitle("Favourite Apartments");
         nav_gallery.setIcon(ContextCompat.getDrawable(this, R.drawable.common_google_signin_btn_text_dark_focused));
 
+        MenuItem nav_slide = menu.findItem(R.id.nav_slideshow);
+        nav_slide.setTitle("Profile");
+        nav_slide.setIcon(ContextCompat.getDrawable(this, R.drawable.com_facebook_profile_picture_blank_square));
+
+        MenuItem nav_add = menu.findItem(R.id.nav_share);
+        nav_add.setTitle("Add Apartment");
+        //nav_slide.setIcon(ContextCompat.getDrawable(this, R.drawable.com_facebook_profile_picture_blank_square));
+        nav_add.setOnMenuItemClickListener(new MenuItem.OnMenuItemClickListener() {
+            @Override
+            public boolean onMenuItemClick(MenuItem menuItem) {
+                AlertDialog.Builder builder = new AlertDialog.Builder(HomeActivity.this);
+                builder.setTitle("Insert Adress");
+
+                final EditText input = new EditText(HomeActivity.this);
+                input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+                builder.setView(input);
+
+            // Set up the buttons
+                builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        m_Text = input.getText().toString();
+                        addApartment(m_Text);
+                    }
+                });
+                builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        dialog.cancel();
+                    }
+                });
+
+                builder.show();
+                return false;
+            }
+        });
+
+        nav_slide.setOnMenuItemClickListener(
+                new MenuItem.OnMenuItemClickListener() {
+                    @Override
+                    public boolean onMenuItemClick(MenuItem menuItem) {
+                        Intent intent = new Intent(getBaseContext(), Profile.class);
+                        Bundle facebookData = getIntent().getExtras();
+                        intent.putExtras(facebookData);
+                        startActivity(intent);
+                        return true;                    }
+                });
+
+        MenuItem nav_manage = menu.findItem(R.id.nav_manage);
+        nav_manage.setTitle("Logout");
+        nav_manage.setIcon(ContextCompat.getDrawable(this, R.drawable.com_facebook_button_login_logo));
+
+        nav_manage.setOnMenuItemClickListener(
+                new MenuItem.OnMenuItemClickListener() {
+                    @Override
+                    public boolean onMenuItemClick(MenuItem menuItem) {
+                        Intent intent = new Intent(getBaseContext(), LoginActivity.class);
+                        LoginManager.getInstance().logOut();
+                        startActivity(intent);
+                        return true;
+                    }
+                });
+
 
         //
+        //
+        final MenuItem nav_getAll = menu.findItem(R.id.nav_send);
+        nav_getAll.setTitle("Get All");
+        nav_getAll.setOnMenuItemClickListener(new MenuItem.OnMenuItemClickListener() {
+            @Override
+            public boolean onMenuItemClick(MenuItem menuItem) {
+                List<Apartment> result = getAllApartmentsFromServer();
+                while(ans==null){
+                }
+                setApartmentsOnMap(ans);
+                return true;
+            }
+        });
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
@@ -162,6 +247,39 @@ public class HomeActivity extends AppCompatActivity
         //Location lastKnownLocation = locationManager.getLastKnownLocation(locationProvider);
         //myLoc = getLastKnownLocation();
     }
+
+    private void addApartment(final String m_text) {
+        new AsyncTask<Void, Void, Void>() {
+            @Override
+            protected Void doInBackground(Void... params) {
+
+                HashMap<String,String> header = new HashMap<String,String>();
+                header.put("token",getIntent().getExtras().get("idFacebook").toString());
+                header.put("address",m_text);
+                Communication.makePostRequestGetCode("http://192.168.43.76:8080/manager/addApartment", header,null);
+                return null;
+            }
+        }.execute();
+    }
+
+    private void setApartmentsOnMap(List<Apartment> ans) {
+        if (ans==null){
+            return;
+        }
+        Geocoder coder = new Geocoder(this);
+        for(Apartment ap: ans){
+            String strAddress = ap.address;
+            try {
+                List<Address> address = coder.getFromLocationName(strAddress,5);
+                Address location=address.get(0);
+                LatLng lg = new LatLng(location.getLatitude(), location.getLongitude() );
+                mMap.addMarker(new MarkerOptions().position(lg).title(strAddress));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
 
     @Override
     public void onBackPressed() {
@@ -402,6 +520,19 @@ public class HomeActivity extends AppCompatActivity
         //mMap.moveCamera(CameraUpdateFactory.newLatLng(home));
     }
 
+    public List<Apartment> getAllApartmentsFromServer(){
+        new AsyncTask<Void, Void, List<Apartment>>() {
+            @Override
+            protected List<Apartment> doInBackground(Void... params) {
+                HashMap<String,String> header = new HashMap<String,String>();
+                header.put("token",getIntent().getExtras().get("idFacebook").toString());
+                List<Apartment> response = Communication.makeGetRequestGetList("http://192.168.43.76:8080/manager/getAllApartments", header, Apartment.class);
+                ans = response;//
+                return response;
+            }
+        }.execute();
+        return null;
+    }
     public void dosomthing(Marker marker) {
         DialogFragment newFragment = new DialogFragment();
         newFragment.setStyle(4,0);
